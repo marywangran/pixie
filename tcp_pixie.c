@@ -53,7 +53,7 @@ static void pixie_main(struct sock *sk, const struct rate_sample *rs)
 	pixie->samples[end]._tstamp_us = now;
 
 	start = pixie->start;
-	while (start < end) {
+	while ((__s16)(start - end) < 0) {
     // 至少保持半个 srtt 反馈周期，越久越不抖动但性能可能不达预期，这里的 “抖动” 要反着理解
 		if (2 * (now -  pixie->samples[start]._tstamp_us) > feedback * tp->srtt_us) {
 			pixie->curr_acked -= pixie->samples[start]._acked;
@@ -83,9 +83,9 @@ static void pixie_main(struct sock *sk, const struct rate_sample *rs)
 			rate,
 			prate);
 	tp->snd_cwnd = min(cwnd, tp->snd_cwnd_clamp);
-  // 用 pacing_rate 去挤兑(而不是 cwnd)，促使单位时间内到达报文更多，以抵消丢包损耗。如果用 cwnd 的话就别 pacing。
+	// 用 pacing_rate 去挤兑(而不是 cwnd)，促使单位时间内到达报文更多，以抵消丢包损耗。如果用 cwnd 的话就别 pacing。
 	sk->sk_pacing_rate = min_t(u64, prate, sk->sk_max_pacing_rate);
-  //sk->sk_pacing_rate = min_t(u64, pixie->rate, sk->sk_max_pacing_rate);
+	//sk->sk_pacing_rate = min_t(u64, pixie->rate, sk->sk_max_pacing_rate);
 }
 
 static void pixie_init(struct sock *sk)
@@ -97,6 +97,8 @@ static void pixie_init(struct sock *sk)
 	pixie->end = 0;
 	pixie->curr_acked = 0;
 	pixie->curr_losses = 0;
+	// 16 bits 的窗口足够了，可支撑 64000*1460*8/0.03 = 25Gbps 的带宽，真达到这么大就不需要挤兑了。
+	// 8 bits 貌似差点意思，8-16 之间又没有基本型，懒得复杂计算，就直取 u16 了。
 	pixie->samples = kmalloc(U16_MAX * sizeof(struct sample), GFP_ATOMIC);
 	cmpxchg(&sk->sk_pacing_status, SK_PACING_NONE, SK_PACING_NEEDED);
 }
