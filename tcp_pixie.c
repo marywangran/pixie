@@ -43,8 +43,8 @@ static void pixie_main(struct sock *sk, const struct rate_sample *rs)
 		sk->sk_pacing_rate = min_t(u64, pixie->rate, READ_ONCE(sk->sk_max_pacing_rate));
 		return;
 	}
-
-  // 丢包突然增加时采用紧缩策略，以在保吞吐时尽量减少进一步丢包，丢包突然减少时采用激进策略，以挤占比实际更多资源。移动平均是个好办法。
+	
+	// 丢包突然增加时采用紧缩策略，以在保吞吐时尽量减少进一步丢包，丢包突然减少时采用激进策略，以挤占比实际更多资源。移动平均是个好办法。
 	pixie->curr_acked += rs->acked_sacked;
 	pixie->curr_losses += rs->losses;
 	end = pixie->end ++;
@@ -54,7 +54,7 @@ static void pixie_main(struct sock *sk, const struct rate_sample *rs)
 
 	start = pixie->start;
 	while ((__s16)(start - end) < 0) {
-    // 至少保持半个 srtt 反馈周期，越久越不抖动但性能可能不达预期，这里的 “抖动” 要反着理解
+		// 至少保持半个 srtt 反馈周期，越久越不抖动但性能可能不达预期，这里的 “抖动” 要反着理解
 		if (2 * (now -  pixie->samples[start]._tstamp_us) > feedback * tp->srtt_us) {
 			pixie->curr_acked -= pixie->samples[start]._acked;
 			pixie->curr_losses -= pixie->samples[start]._losses;
@@ -99,7 +99,7 @@ static void pixie_init(struct sock *sk)
 	pixie->curr_losses = 0;
 	// 16 bits 的窗口足够了，可支撑 64000*1460*8/0.03 = 25Gbps 的带宽，真达到这么大就不需要挤兑了。
 	// 8 bits 貌似差点意思，8-16 之间又没有基本型，懒得复杂计算，就直取 u16 了。
-	pixie->samples = kmalloc(U16_MAX * sizeof(struct sample), GFP_ATOMIC);
+	pixie->samples = kmalloc(U16_MAX * sizeof(struct sample), GFP_ATOMIC); // ATOMIC ??
 	cmpxchg(&sk->sk_pacing_status, SK_PACING_NONE, SK_PACING_NEEDED);
 }
 
@@ -110,7 +110,6 @@ static void pixie_release(struct sock *sk)
 	if (pixie->samples)
 		kfree(pixie->samples);
 }
-
 
 static u32 pixie_ssthresh(struct sock *sk)
 {
