@@ -1,6 +1,7 @@
 # pixie
-尽力保持吞吐(有效带宽)的 TCP 发包算法，pixie 不是 “皮鞋”，而是 “捣蛋鬼”
-算法细节：
+尽力保持吞吐(有效带宽)的 TCP 发包算法，pixie 不是 “皮鞋”，而是 “捣蛋鬼”.
+
+- 算法细节：
 pacing_rate = rate * (losses + acked)/(acked)
 cwnd = rate * (losses + acked)/(acked) * rtt
 
